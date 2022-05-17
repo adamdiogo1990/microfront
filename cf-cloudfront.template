@@ -1,0 +1,312 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Frontend Monitor Cambial",
+    "Parameters": {
+        "Stage": {
+            "Type": "String",
+            "AllowedValues": [
+                "dev",
+                "uat",
+                "prod"
+            ],
+            "Default": "dev"
+        }
+    },
+    "Mappings": {
+        "Environment": {
+            "dev": {
+                "ENVIRONMENT": "Development",
+                "Bucket": "fx-currency-position-static-dev",
+                "CloudFrontUrl": "currencypositions-dev.pactual.net",
+                "CachePolicy": "currencypositions-policy-dev",
+                "DefaultTTL": 60,
+                "CertificateArn": "arn:aws:acm:sa-east-1:708833887440:certificate/3390981f-9494-402e-9536-fc747992d53f"
+            },
+            "uat": {
+                "ENVIRONMENT": "Staging",
+                "Bucket": "fx-currency-position-static",
+                "CloudFrontUrl": "currencypositions-uat.pactual.net",
+                "CachePolicy": "currencypositions-policy-uat",
+                "DefaultTTL": 86400,
+                "CertificateArn": "arn:aws:acm:us-east-1:863778243822:certificate/101e2105-3678-4c9e-bb78-0e2155563b3c"
+            },
+            "prod": {
+                "ENVIRONMENT": "Production",
+                "Bucket": "fx-currency-position-static-prod",
+                "CloudFrontUrl": "currencypositions-prod.pactual.net",
+                "CachePolicy": "currencypositions-policy-prod",
+                "DefaultTTL": 86400,
+                "CertificateArn": "arn:aws:acm:us-east-1:987844385554:certificate/c7a5d926-3ee5-41ca-95c9-329ac5b90d62"
+            }
+        }
+    },
+    "Resources": {
+        "CurrencyPositionsBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "BucketName": {
+                    "Fn::FindInMap": [
+                        "Environment",
+                        {
+                            "Ref": "Stage"
+                        },
+                        "Bucket"
+                    ]
+                },
+                "PublicAccessBlockConfiguration": {
+                    "BlockPublicAcls": true,
+                    "BlockPublicPolicy": true,
+                    "IgnorePublicAcls": true,
+                    "RestrictPublicBuckets": false
+                },
+                "VersioningConfiguration": {
+                    "Status": "Enabled"
+                },
+                "BucketEncryption": {
+                    "ServerSideEncryptionConfiguration": [
+                        {
+                            "ServerSideEncryptionByDefault": {
+                                "SSEAlgorithm": "AES256"
+                            }
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Value": "FX-CurrencyPositions",
+                        "Key": "Bucket"
+                    }
+                ]
+            }
+        },
+        "CurrencyPositionsPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "Bucket": {
+                    "Ref": "CurrencyPositionsBucket"
+                },
+                "PolicyDocument": {
+                    "Id": "CurrencyPositionsMonitorBucketPolicy",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ",
+                                            {
+                                                "Ref": "CurrencyPositionsAccessIdentity"
+                                            }
+                                        ]
+                                    ]
+                                }
+                            },
+                            "Action": [
+                                "s3:GetObject"
+                            ],
+                            "Resource": [
+                                {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            {
+                                                "Fn::GetAtt": [
+                                                    "CurrencyPositionsBucket",
+                                                    "Arn"
+                                                ]
+                                            },
+                                            "/*"
+                                        ]
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        "CurrencyPositionsFrontDistribution": {
+            "Type": "AWS::CloudFront::Distribution",
+            "DependsOn": "CurrencyPositionsBucket",
+            "Properties": {
+                "DistributionConfig": {
+                    "Aliases": [
+                        {
+                            "Fn::FindInMap": [
+                                "Environment",
+                                {
+                                    "Ref": "Stage"
+                                },
+                                "CloudFrontUrl"
+                            ]
+                        }
+                    ],
+                    "Comment": "Monitor de posicao Cambial",
+                    "CustomErrorResponses": [
+                        {
+                            "ErrorCachingMinTTL": 10,
+                            "ErrorCode": 403,
+                            "ResponseCode": 200,
+                            "ResponsePagePath": "/index.html"
+                        }
+                    ],
+                    "DefaultCacheBehavior": {
+                        "CachePolicyId": {
+                            "Ref": "CurrencyPositionsCachePolicy"
+                        },
+                        "AllowedMethods": [
+                            "GET",
+                            "HEAD",
+                            "OPTIONS",
+                            "PUT",
+                            "POST",
+                            "PATCH",
+                            "DELETE"
+                        ],
+                        "CachedMethods": [
+                            "GET",
+                            "HEAD"
+                        ],
+                        "Compress": false,
+                        "SmoothStreaming": false,
+                        "TargetOriginId": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    "S3-",
+                                    {
+                                        "Fn::FindInMap": [
+                                            "Environment",
+                                            {
+                                                "Ref": "Stage"
+                                            },
+                                            "Bucket"
+                                        ]
+                                    }
+                                ]
+                            ]
+                        },
+                        "ViewerProtocolPolicy": "redirect-to-https"
+                    },
+                    "DefaultRootObject": "index.html",
+                    "Origins": [
+                        {
+                            "DomainName": {
+                                "Fn::GetAtt": [
+                                    "CurrencyPositionsBucket",
+                                    "DomainName"
+                                ]
+                            },
+                            "Id": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "S3-",
+                                        {
+                                            "Fn::FindInMap": [
+                                                "Environment",
+                                                {
+                                                    "Ref": "Stage"
+                                                },
+                                                "Bucket"
+                                            ]
+                                        }
+                                    ]
+                                ]
+                            },
+                            "S3OriginConfig": {
+                                "OriginAccessIdentity": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "origin-access-identity/cloudfront/",
+                                            {
+                                                "Ref": "CurrencyPositionsAccessIdentity"
+                                            }
+                                        ]
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    "Enabled": true,
+                    "ViewerCertificate": {
+                        "AcmCertificateArn": {
+                            "Fn::FindInMap": [
+                                "Environment",
+                                {
+                                    "Ref": "Stage"
+                                },
+                                "CertificateArn"
+                            ]
+                        },
+                        "SslSupportMethod": "sni-only"
+                    }
+                },
+                "Tags": [
+                    {
+                        "Value": "FX-CurrencyPositions",
+                        "Key": "CloudFrontDistribution"
+                    }
+                ]
+            }
+        },
+        "CurrencyPositionsCachePolicy": {
+            "Type": "AWS::CloudFront::CachePolicy",
+            "Properties": {
+                "CachePolicyConfig": {
+                    "Name": {
+                        "Fn::FindInMap": [
+                            "Environment",
+                            {
+                                "Ref": "Stage"
+                            },
+                            "CachePolicy"
+                        ]
+                    },
+                    "Comment": "Politica de cache para o monitor de posicoes cambiais",
+                    "DefaultTTL": {
+                        "Fn::FindInMap": [
+                            "Environment",
+                            {
+                                "Ref": "Stage"
+                            },
+                            "DefaultTTL"
+                        ]
+                    },
+                    "MaxTTL": 31536000,
+                    "MinTTL": 1,
+                    "ParametersInCacheKeyAndForwardedToOrigin": {
+                        "CookiesConfig": {
+                            "CookieBehavior": "none"
+                        },
+                        "EnableAcceptEncodingBrotli": true,
+                        "EnableAcceptEncodingGzip": true,
+                        "HeadersConfig": {
+                            "HeaderBehavior": "whitelist",
+                            "Headers": [
+                                "Origin",
+                                "Access-Control-Request-Method",
+                                "Access-Control-Request-Headers"
+                            ]
+                        },
+                        "QueryStringsConfig": {
+                            "QueryStringBehavior": "none"
+                        }
+                    }
+                }
+            }
+        },
+        "CurrencyPositionsAccessIdentity": {
+            "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+            "Properties": {
+                "CloudFrontOriginAccessIdentityConfig": {
+                    "Comment": "Origin Access Identity for FX-CurrencyPositions"
+                }
+            }
+        }
+    },
+    "Outputs": {}
+}
