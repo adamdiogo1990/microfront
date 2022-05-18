@@ -1,0 +1,72 @@
+{
+  "clauses": [
+    {
+      "id": 1,
+      "title": "Clause 1",
+      "text": "Lorem impsun lorem dolor"
+    },
+    {
+      "id": 2,
+      "title": "Clause 2",
+      "text": "Lorem impsun lorem dolor"
+    },
+    {
+      "id": 3,
+      "title": "Clause 3",
+      "text": "Lorem impsun lorem dolor"
+    },
+    {
+      "id": 4,
+      "title": "Clause 4",
+      "text": "Lorem impsun lorem dolor"
+    },
+    {
+      "title": "title ",
+      "text": "text text text",
+      "id": 5
+    },
+    {
+      "title": "Tile 2",
+      "text": "TESSDAS\nADSDS\nADSAS\nDDSADADADSA ",
+      "id": 6
+    },
+    {
+      "title": "fsdafd",
+      "text": "dsdfsd ds fsfsdfsdf sdfsd\n",
+      "id": 7
+    }
+  ],
+  "products": [
+    {
+      "id": 1,
+      "title": "Product 1",
+      "associations": [
+        {
+          "id": 1,
+          "title": "Clause 1"
+        },
+        {
+          "id": 2,
+          "title": "Clause 2"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Product 2",
+      "associations": [
+        {
+          "id": 1,
+          "title": "Clause 1"
+        },
+        {
+          "id": 2,
+          "title": "Clause 2"
+        }
+      ]
+    }
+  ],
+  "profile": {
+    "name": "typicode"
+  }
+}

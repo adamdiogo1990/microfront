@@ -3,7 +3,6 @@ import { createGlobalStyle } from 'styled-components';
 export default createGlobalStyle`
 
 
-
 .Title-title-27{
     font-size: 13px;
 }
